@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    container_name: screenplay-to-shotlist
+    restart: unless-stopped
+    ports:
+      # Порт хоста занят? Запустите с HOST_PORT=8081 docker compose up.
+      - "${HOST_PORT:-8080}:8080"
+    environment:
+      # Ключ пробрасывается с хоста или из .env рядом с compose-файлом.
+      # Без него сервис поднимется, но запрос к /all-to-csv вернёт ошибку OpenAI.
+      - OPENAI_API_KEY

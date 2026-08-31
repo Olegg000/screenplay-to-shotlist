@@ -78,18 +78,35 @@ OpenAI.
 - springdoc-openapi (Swagger UI)
 - Gradle (Kotlin DSL), wrapper в комплекте
 
-## Запуск
-
-Нужен ключ OpenAI. Он читается из переменной окружения `OPENAI_API_KEY`
-(см. `.env.example`). В репозитории ключа нет.
+## Быстрый старт
 
 ```bash
-export OPENAI_API_KEY=sk-...   # свой ключ
+OPENAI_API_KEY=sk-... docker compose up --build
+```
+
+Приложение поднимется на `http://localhost:8080`, Swagger UI —
+`http://localhost:8080/swagger-ui.html`. Ключ OpenAI в репозитории не хранится:
+он читается из переменной окружения (образец — `.env.example`). Без ключа сервис
+всё равно стартует, но обращение к модели вернёт ошибку авторизации.
+
+Занят порт — `HOST_PORT=8081 OPENAI_API_KEY=sk-... docker compose up --build`.
+
+### Без Docker
+
+Gradle сам подтянет JDK 21, если в системе стоит другая версия.
+
+```bash
+export OPENAI_API_KEY=sk-...
 ./gradlew bootRun
 ```
 
-Приложение поднимется на `http://localhost:8080`. Swagger UI:
-`http://localhost:8080/swagger-ui.html`.
+## Эндпоинты
+
+| Метод | Путь | Что делает |
+| --- | --- | --- |
+| `POST` | `/all-to-csv` | Принимает `multipart/form-data` с полем `file` (PDF, DOCX, текст) и возвращает готовый CSV как вложение |
+| `GET` | `/swagger-ui.html` | Swagger UI (springdoc) |
+| `GET` | `/v3/api-docs` | OpenAPI-схема в JSON |
 
 Отправить сценарий и получить CSV:
 
@@ -98,9 +115,6 @@ curl -X POST http://localhost:8080/all-to-csv \
   -F "file=@examples/sample-screenplay.txt" \
   -o shotlist.csv
 ```
-
-Эндпоинт `POST /all-to-csv` принимает `multipart/form-data` с полем `file`
-(PDF/DOCX/текст) и возвращает CSV как вложение.
 
 ## Структура
 
@@ -115,6 +129,8 @@ src/main/kotlin/app/screenplay/
     ├── DocumentAiService.kt        батчинг + вызовы LLM → кадры
     └── CsvExportService.kt         кадры → CSV
 examples/                           пример входного сценария и выходного CSV
+Dockerfile                          многоступенчатая сборка: gradle:jdk21 → temurin:21-jre
+docker-compose.yml                  запуск одной командой
 ```
 
 ## Об авторе
