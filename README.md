@@ -1,5 +1,8 @@
 # screenplay-to-shotlist
 
+### 🎬 [Живое демо — как выглядит результат](https://olegg000.github.io/screenplay-to-shotlist/)
+
+
 > **EN (summary).** A Kotlin + Spring Boot service that turns a film script
 > (PDF or DOCX) into a director's shot list. It parses the document, splits it
 > into scenes by standard headers (ИНТ./НАТ./INT./EXT.), token-batches the
@@ -45,6 +48,14 @@ CSV (режиссёрский сценарий)
 на выходе), набивает батчи под безопасный лимит, а слишком крупные сцены дробит
 на части. Между батчами выдерживается пауза, чтобы не упереться в rate limit
 OpenAI.
+
+## Демо-страница
+
+В `docs/` лежит статическая витрина сервиса: разбор короткометражки на 14 кадров,
+структура и колонки — ровно те, что уходят в CSV, с рабочей выгрузкой файла.
+Публикуется на GitHub Pages из папки `docs/`, бекенд для неё не нужен.
+
+Локально: `python3 -m http.server -d docs 8000` и открыть `http://localhost:8000`.
 
 ## Пример
 

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Сценарий в раскадровку — Лендвис</title>
+<meta name="description" content="Сервис превращает сценарий фильма (PDF или DOCX) в режиссёрский покадровый план: план съёмки, хронометраж, звук, реквизит и техника по каждому кадру.">
+<meta property="og:title" content="Сценарий в раскадровку">
+<meta property="og:description" content="Загружаете сценарий — получаете режиссёрский покадровый план в CSV. Kotlin, Spring AI.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%230a0a0b'/%3E%3Crect x='6' y='9' width='20' height='14' rx='1.5' fill='%23e8b44a'/%3E%3Crect x='9' y='12' width='14' height='8' fill='%230a0a0b'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;600&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --void:#0a0a0b; --stage:#121213; --raise:#1b1b1d; --edge:#2a2a2d;
+  --light:#f3f0ea; --dim:#9a958d; --faint:#6b6863;
+  --cell:#e8b44a; --mark:#d6493f;
+  --display:'Oswald',Impact,sans-serif; --body:'Golos Text',system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--void);color:var(--light);font:400 16px/1.6 var(--body);overflow-x:hidden}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:99;opacity:.16;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E")}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--cell);outline-offset:3px}
+
+.bar{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:18px;
+  padding:14px 24px;background:linear-gradient(var(--void),rgba(10,10,11,0));font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+.bar b{color:var(--light);font-weight:500}
+.bar .sp{margin-left:auto}
+
+.hero{position:relative;min-height:100svh;display:flex;flex-direction:column;justify-content:center;padding:110px 0 40px;overflow:hidden}
+.hero-in{position:relative;z-index:2}
+.slate{font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--cell);margin:0 0 26px;display:flex;gap:14px;flex-wrap:wrap}
+.slate span{color:var(--faint)}
+h1{font-family:var(--display);font-weight:600;text-transform:uppercase;
+  font-size:clamp(3.2rem,13vw,10.5rem);line-height:.85;letter-spacing:-.01em;margin:0 0 4px}
+h1 .thin{font-weight:300;color:var(--dim);display:block}
+.tag{max-width:44ch;color:var(--dim);font-size:clamp(1rem,1.7vw,1.22rem);margin:26px 0 34px}
+.tag b{color:var(--light);font-weight:500}
+.acts{display:flex;flex-wrap:wrap;gap:12px}
+.act{display:inline-flex;align-items:center;gap:10px;font:500 14px/1 var(--body);padding:15px 24px;border-radius:2px;text-decoration:none;
+  background:var(--cell);color:#17140c;border:1px solid var(--cell);transition:transform .15s ease}
+.act.line{background:transparent;color:var(--light);border-color:var(--edge)}
+.act:hover{transform:translateY(-2px)}
+
+/* плёнка */
+.strip{position:relative;margin-top:56px;border-top:1px solid var(--edge);border-bottom:1px solid var(--edge);background:#0e0e0f;overflow:hidden}
+.perf{display:flex;gap:14px;padding:7px 0;opacity:.5}
+.perf i{flex:0 0 26px;height:11px;border-radius:2px;background:var(--edge)}
+.track{display:flex;gap:2px;animation:roll 46s linear infinite;width:max-content}
+@keyframes roll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.frame{flex:0 0 236px;height:150px;background:var(--stage);border-left:1px solid #000;border-right:1px solid #000;
+  padding:14px 15px;display:flex;flex-direction:column;justify-content:space-between}
+.frame .id{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;color:var(--cell)}
+.frame p{margin:0;font-size:12.8px;line-height:1.45;color:var(--dim);
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.frame .plan{font-family:var(--mono);font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.1em}
+@media(prefers-reduced-motion:reduce){.track{animation:none}}
+
+section{padding:clamp(64px,10vw,120px) 0}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--cell);margin:0 0 16px}
+h2{font-family:var(--display);font-weight:400;text-transform:uppercase;font-size:clamp(1.9rem,4.6vw,3.2rem);line-height:1;margin:0 0 18px;letter-spacing:.01em}
+.sub{color:var(--dim);max-width:58ch;margin:0 0 46px}
+
+/* конвейер */
+.pipe{display:grid;gap:1px;background:var(--edge);border:1px solid var(--edge)}
+@media(min-width:820px){.pipe{grid-template-columns:repeat(4,1fr)}}
+.step{background:var(--stage);padding:28px 24px}
+.step .num{font-family:var(--display);font-size:2.6rem;line-height:1;color:var(--edge);margin-bottom:14px}
+.step h3{font-family:var(--display);font-weight:400;text-transform:uppercase;font-size:1.1rem;letter-spacing:.04em;margin:0 0 8px}
+.step p{margin:0;font-size:14.2px;color:var(--dim)}
+
+/* сцены */
+.scene{border-top:1px solid var(--edge);padding:36px 0}
+.scene-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:16px;margin-bottom:22px}
+.scene-head .sn{font-family:var(--display);font-size:clamp(2.4rem,6vw,4rem);line-height:.9;color:var(--cell)}
+.scene-head h3{font-family:var(--display);font-weight:400;text-transform:uppercase;font-size:clamp(1.05rem,2.4vw,1.5rem);letter-spacing:.03em;margin:0;flex:1;min-width:220px}
+.scene-head .meta{font-family:var(--mono);font-size:11.5px;color:var(--faint);letter-spacing:.08em}
+.src{border-left:2px solid var(--edge);padding:2px 0 2px 18px;margin:0 0 26px;color:var(--dim);font-size:14.6px;white-space:pre-line;max-width:70ch}
+.shots{display:grid;gap:1px;background:var(--edge);border:1px solid var(--edge)}
+@media(min-width:900px){.shots{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:560px) and (max-width:899px){.shots{grid-template-columns:repeat(2,1fr)}}
+.shot{background:var(--stage);padding:22px 20px;display:flex;flex-direction:column;gap:12px;transition:background .18s}
+.shot:hover{background:var(--raise)}
+.shot .top{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+.shot .top .k{color:var(--cell)}
+.shot .top .d{margin-left:auto;color:var(--faint);font-variant-numeric:tabular-nums}
+.shot .plan{font-family:var(--display);text-transform:uppercase;font-size:.98rem;letter-spacing:.05em;color:var(--light)}
+.shot p{margin:0;font-size:14.4px;color:var(--dim)}
+.shot dl{margin:auto 0 0;display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:12.4px;padding-top:12px;border-top:1px solid var(--edge)}
+.shot dt{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);padding-top:2px}
+.shot dd{margin:0;color:var(--dim)}
+
+.out{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:44px;padding-top:32px;border-top:1px solid var(--edge)}
+.out p{margin:0;color:var(--faint);font-size:13.5px;font-family:var(--mono)}
+footer{border-top:1px solid var(--edge);padding:34px 0 60px;color:var(--faint);font-size:13px}
+footer a{color:var(--dim)}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <a href="https://olegg000.github.io/lendvis/" style="color:var(--light);text-decoration:none;font-weight:500">LENDVIS</a><span>Screenplay → Shot list</span>
+  <span class="sp">MTS True Tech Champ · 3 место</span>
+</div>
+
+<header class="hero">
+  <div class="wrap hero-in">
+    <p class="slate">Сцен: 3 <span>/</span> Кадров: 14 <span>/</span> Хронометраж: 2:37 <span>/</span> Формат: CSV</p>
+    <h1>Сценарий<span class="thin">в раскадровку</span></h1>
+    <p class="tag">Загружаете PDF или DOCX со сценарием — получаете <b>режиссёрский покадровый план</b>: план съёмки, хронометраж, звук, реквизит и техника по каждому кадру.</p>
+    <div class="acts">
+      <a class="act" href="#result">Смотреть разбор</a>
+      <a class="act line" href="#" id="csv">Скачать CSV</a>
+    </div>
+  </div>
+  <div class="strip">
+    <div class="perf" id="perfTop"></div>
+    <div class="track" id="track"></div>
+    <div class="perf" id="perfBot"></div>
+  </div>
+</header>
+
+<main>
+<section class="wrap">
+  <p class="eyebrow">Как это работает</p>
+  <h2>Четыре шага без человека</h2>
+  <p class="sub">Сервис читает документ, режет его на сцены по стандартным заголовкам, укладывает их в контекст модели и собирает таблицу, которую можно сразу открыть в Excel.</p>
+  <div class="pipe">
+    <div class="step"><div class="num">01</div><h3>Разбор файла</h3><p>PDF или DOCX превращается в чистый текст с сохранением структуры реплик и ремарок.</p></div>
+    <div class="step"><div class="num">02</div><h3>Разрез на сцены</h3><p>Заголовки ИНТ. / НАТ. / INT. / EXT. становятся границами сцен — как в настоящем сценарии.</p></div>
+    <div class="step"><div class="num">03</div><h3>Разбивка на кадры</h3><p>Сцены пакуются по бюджету токенов, модель дробит каждую на кадры с планом и хронометражом.</p></div>
+    <div class="step"><div class="num">04</div><h3>Таблица</h3><p>CSV в UTF-8 с BOM — Excel открывает кириллицу без бубна и танцев с кодировкой.</p></div>
+  </div>
+</section>
+
+<section class="wrap" id="result">
+  <p class="eyebrow">Результат разбора</p>
+  <h2>«Мастерская» — 14 кадров</h2>
+  <p class="sub">Пример разбора короткометражки: слева исходный текст сцены, справа — кадры, на которые её раскладывает сервис. Структура и колонки — ровно те, что уходят в CSV.</p>
+  <div id="scenes"></div>
+  <div class="out">
+    <a class="act" href="#" id="csv2">Скачать таблицу CSV</a>
+    <p>10 колонок · разделитель «;» · UTF-8 с BOM</p>
+  </div>
+</section>
+</main>
+
+<footer class="wrap">
+  Демонстрация сервиса на Kotlin + Spring AI. Код: <a href="https://github.com/Olegg000/screenplay-to-shotlist">github.com/Olegg000/screenplay-to-shotlist</a>
+</footer>
+
+<script src="data.js"></script>
+<script>
+(function(){
+  var F = window.FILM, all = [];
+  F.scenes.forEach(function(s){ s.shots.forEach(function(sh){ all.push({s:s, sh:sh}); }); });
+
+  // плёнка в шапке: дублируем ленту, чтобы прокрутка была бесшовной
+  var track = document.getElementById('track'), html = '';
+  function frames(){
+    return all.map(function(x){
+      return '<div class="frame"><div class="id">СЦ '+x.s.n+' · КАДР '+x.sh.i+'</div>'+
+             '<p>'+x.sh.desc+'</p><div class="plan">'+x.sh.type+' · '+x.sh.dur+'с</div></div>';
+    }).join('');
+  }
+  track.innerHTML = frames() + frames();
+  var perf = Array.from({length:60},function(){return '<i></i>';}).join('');
+  document.getElementById('perfTop').innerHTML = perf;
+  document.getElementById('perfBot').innerHTML = perf;
+
+  // сцены и кадры
+  document.getElementById('scenes').innerHTML = F.scenes.map(function(s){
+    var dur = s.shots.reduce(function(a,b){return a+b.dur;},0);
+    return '<article class="scene"><div class="scene-head">'+
+      '<div class="sn">'+String(s.n).padStart(2,'0')+'</div>'+
+      '<h3>'+s.slug+'</h3>'+
+      '<div class="meta">'+s.shots.length+' кадров · '+dur+' сек</div></div>'+
+      '<p class="src">'+s.source+'</p>'+
+      '<div class="shots">'+ s.shots.map(function(sh){
+        return '<div class="shot"><div class="top"><span class="k">Кадр '+s.n+'.'+sh.i+'</span><span class="d">'+sh.dur+' сек</span></div>'+
+          '<div class="plan">'+sh.type+'</div><p>'+sh.desc+'</p>'+
+          '<dl><dt>Звук</dt><dd>'+sh.sound+'</dd><dt>Реквизит</dt><dd>'+sh.props+'</dd><dt>Техника</dt><dd>'+sh.gear+'</dd></dl></div>';
+      }).join('') +'</div></article>';
+  }).join('');
+
+  // выгрузка CSV — тот же формат, что отдаёт сервис
+  function csv(){
+    var rows = ['№ Кадра (общ.);№ Сцены;№ Кадра (в сцене);Локация;ХРН;План и способ съемки;Содержание кадра;Звук;Реквизит;Техника'];
+    var n = 0;
+    F.scenes.forEach(function(s){
+      s.shots.forEach(function(sh){
+        n++;
+        rows.push([n,s.n,sh.i,s.location,sh.dur,sh.type,sh.desc,sh.sound,sh.props,sh.gear]
+          .map(function(v){ v = String(v); return /[;"\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }).join(';'));
+      });
+    });
+    return '\uFEFF' + rows.join('\r\n');
+  }
+  function save(e){
+    e.preventDefault();
+    var b = new Blob([csv()], {type:'text/csv;charset=utf-8'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(b); a.download = 'masterskaya.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+  }
+  document.getElementById('csv').addEventListener('click', save);
+  document.getElementById('csv2').addEventListener('click', save);
+})();
+</script>
+</body>
+</html>
