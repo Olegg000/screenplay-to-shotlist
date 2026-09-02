@@ -9,13 +9,13 @@
 > scenes to fit the model's context window, asks an LLM (via Spring AI +
 > OpenAI) to break each scene into shots, and streams back a ready-to-open CSV
 > (UTF-8 with BOM, so Excel reads Cyrillic correctly). Built solo at the
-> **MTS True Tech Champ** hackathon (3rd place).
+> the **MTS True Tech Champ** hackathon.
 
 Сервис на **Kotlin + Spring Boot + Spring AI**, который превращает сценарий
 фильма (PDF или DOCX) в режиссёрский покадровый сценарий (shot list) в формате
 CSV.
 
-Проект сделан соло на хакатоне **MTS True Tech Champ** (3-е место).
+Проект сделан на хакатоне **MTS True Tech Champ**.
 
 ## Что делает
 
@@ -144,14 +144,6 @@ Dockerfile                          многоступенчатая сборк�
 docker-compose.yml                  запуск одной командой
 ```
 
-## Об авторе
+---
 
-**Ковалик Олег Владиславович** — разработчик.
-
-- Чемпионат «Профессионалы» 2025: 1 место (Самара) по мобильной разработке,
-  3 место (Россия), 1 место в командном зачёте; 2 место (Самара) по блокчейну
-- Волга-IT'2025: 3 место (Flutter / ОС Аврора)
-- MTS True Tech Champ: 3 место (этот проект)
-- Финалист РуКод (МФТИ)
-- 1С:Профессионал 8.3
-- Фриланс-контракты Solidity / FunC / Tact (под NDA)
+Студия Лендвис · [landvis.ru](https://landvis.ru)
